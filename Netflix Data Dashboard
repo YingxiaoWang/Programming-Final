@@ -1,0 +1,117 @@
+library(shiny)
+library(shinydashboard) 
+library(DT)
+library(plotly)
+library(tidyverse)
+library(dplyr)
+library(stringr)
+
+
+ui <- dashboardPage(
+  dashboardHeader(title = "Netflix Data"),
+  dashboardSidebar(
+    sidebarMenu(
+      menuItem("Most popular", tabName = "page1", icon = icon("thumbs-up")),
+      menuItem("Genre", tabName = "page2", icon = icon("book")),
+      menuItem("Average runtime", tabName = "page3", icon = icon("clock")),
+      menuItem("Datatable",tabName = "page4", icon = icon("video"))
+    )
+  ),
+  dashboardBody(
+    tabItems(
+      tabItem(tabName = "page1",
+              textOutput("txt1"),
+              sliderInput("decades", "Decades:", min = 1945, max = 2015, value = 1945, 
+                          step = 10, animate = animationOptions(interval = 2000, loop = FALSE)),
+              selectInput("show",label = "I want to check the data of:",
+                          choices = c("shows" = "SHOW",
+                                      "movies" = "MOVIE")) ,
+              plotlyOutput("plot1", height = 700)
+      ),
+      tabItem(tabName = "page2",
+              textOutput("txt2"),
+              sliderInput("decades2", "Decades:", min = 1945, max = 2015, value = 1945, 
+                          step = 10, animate = animationOptions(interval = 2000, loop = FALSE)),
+              selectInput("show2", label = "I want to check the data of:",
+                          choices = c("shows" = "SHOW",
+                                      "movies" = "MOVIE")) ,
+              plotOutput("plot2",height = 700)
+      ),
+      tabItem(tabName = "page3",
+              textOutput("txt3"),
+              selectInput("show3",label = "I want to check the data of:",
+                          choices = c("shows"="SHOW",
+                                      "movies"="MOVIE")),
+              plotlyOutput("plot3")
+      ),
+      tabItem(tabName = "page4", dataTableOutput("myTable"))
+    )
+  )
+)
+
+
+server <- function(input, output, session) {
+  data <- read.csv("Netflix.csv")
+  data$genres <- str_extract(data$genres,"(?<=\\[')\\w+")
+  
+  
+  output$txt1 = renderText({
+    "On this page, you can check the most popular shows/movies for each decade."
+  })
+  output$txt2 = renderText({
+    "On this page, you can check the share of each genre in the market in each decade."
+  })
+  output$txt3 = renderText({
+    "On this page, you can see the trend in the length of the runtime as the release year changes."
+  })
+  output$plot1 = renderPlotly({
+    if(input$show == "SHOW"){
+      dataTemp <- data[(data$type == 'SHOW')&(data$release_year>=input$decades)&(data$release_year<input$decades+10),]
+    }else{
+      dataTemp <- data[(data$type == 'MOVIE')&(data$release_year>=input$decades)&(data$release_year<input$decades+10),]
+    }
+    if(nrow(dataTemp)>10){
+      dataTemp <- arrange(dataTemp, desc(tmdb_popularity))[1:10,]
+    }
+    p1 <- ggplot(data = dataTemp,
+                     mapping = aes(x = reorder(title, -tmdb_popularity), y = tmdb_popularity))+geom_bar(stat = "identity")+
+      scale_x_discrete(name = str_c("The ",nrow(dataTemp)," most popular ",input$show," on the TMDB this decade"))+
+      scale_y_discrete(name = "popularity")+
+      theme(axis.text.x = element_text(angle = 30, hjust = 1))
+    ggplotly(p1)
+  })
+  
+  output$plot2 = renderPlot({
+    if(input$show2 == "SHOW"){
+      t <- data[(data$type == 'SHOW')&(data$release_year>=input$decades2)&(data$release_year<input$decades2+10),]
+    }else{
+      t <- data[(data$type == 'MOVIE')&(data$release_year>=input$decades2)&(data$release_year<input$decades2+10),]
+    }
+    t <- as.data.frame(table(t$genres))
+    names(t) <- c("Genre","Count")
+    label_value <- paste('(', round(t$Count/sum(t$Count) * 100, 2), '%)', sep = '')
+    label <- paste(t$Genre, label_value, sep = '')
+    ggplot(data = t, mapping = aes(x="",y=Count,fill = Genre))+geom_bar(stat = "identity",position = "stack", width = 1, color = "black")+
+      coord_polar(theta = "y", start = 0)+labs(x="",y="",title = "")+theme(axis.text = element_blank(), axis.ticks = element_blank())+
+      scale_fill_discrete(labels = label)
+  })
+  
+  output$plot3 = renderPlotly({
+    if(input$show3 == "SHOW"){
+      t2 <- data[data$type == "SHOW",]
+    }else{
+      t2 <- data[data$type == "MOVIE",]
+    }
+    t2 <- t2 %>%
+      group_by(release_year) %>%
+      summarize(mrt = round(mean(runtime),2))
+    p3 <- ggplot(data = t2, mapping = aes(x = release_year, y = mrt))+geom_line()+geom_smooth()+labs(x = "release year", y = "average runtime")
+    ggplotly(p3)
+  })
+  
+  output$myTable = renderDataTable({
+    return(datatable(data,rownames = FALSE))
+  })
+}
+
+shinyApp(ui = ui, server = server)
