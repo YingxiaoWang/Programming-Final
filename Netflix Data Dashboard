@@ -23,6 +23,8 @@ ui <- dashboardPage(
               textOutput("txt1"),
               sliderInput("decades", "Decades:", min = 1945, max = 2015, value = 1945, 
                           step = 10, animate = animationOptions(interval = 2000, loop = FALSE)),
+              actionButton("Buttom1",'Show'),
+              textOutput("summary1"),
               selectInput("show",label = "I want to check the data of:",
                           choices = c("shows" = "SHOW",
                                       "movies" = "MOVIE")) ,
@@ -32,6 +34,8 @@ ui <- dashboardPage(
               textOutput("txt2"),
               sliderInput("decades2", "Decades:", min = 1945, max = 2015, value = 1945, 
                           step = 10, animate = animationOptions(interval = 2000, loop = FALSE)),
+              actionButton("Buttom2",'Show'),
+              textOutput("summary2"),
               selectInput("show2", label = "I want to check the data of:",
                           choices = c("shows" = "SHOW",
                                       "movies" = "MOVIE")) ,
@@ -64,6 +68,20 @@ server <- function(input, output, session) {
   output$txt3 = renderText({
     "On this page, you can see the trend in the length of the runtime as the release year changes."
   })
+  
+  
+  output$summary1 = renderText({
+    input$Buttom1
+    paste0("Year of selection is  ", isolate(input$decades))
+    
+  })
+  
+  output$summary2 = renderText({
+    input$Buttom2
+    paste0("Year of selection is  ", isolate(input$decades))
+    
+  })
+  
   output$plot1 = renderPlotly({
     if(input$show == "SHOW"){
       dataTemp <- data[(data$type == 'SHOW')&(data$release_year>=input$decades)&(data$release_year<input$decades+10),]
@@ -74,7 +92,7 @@ server <- function(input, output, session) {
       dataTemp <- arrange(dataTemp, desc(tmdb_popularity))[1:10,]
     }
     p1 <- ggplot(data = dataTemp,
-                     mapping = aes(x = reorder(title, -tmdb_popularity), y = tmdb_popularity))+geom_bar(stat = "identity")+
+                 mapping = aes(x = reorder(title, -tmdb_popularity), y = tmdb_popularity))+geom_bar(stat = "identity")+
       scale_x_discrete(name = str_c("The ",nrow(dataTemp)," most popular ",input$show," on the TMDB this decade"))+
       scale_y_discrete(name = "popularity")+
       theme(axis.text.x = element_text(angle = 30, hjust = 1))
